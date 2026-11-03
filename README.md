@@ -11,7 +11,7 @@ with its own API key. This folder has everything you need:
 | `csharp/Iti.AiClient.Smoke/` | A test that runs every call against the real service. Run it first |
 | `openapi-v1.json` | The v1 contract (every route, field and error). The library follows it |
 
-**Interactive API docs (Swagger):** `<base URL>v1/docs`, e.g. `https://ITI-Vinas.ho.intellismartinc.com:8443/v1/docs`.
+**Interactive API docs (Swagger):** `<base URL>v1/docs`, e.g. `https://192.168.4.99:2102/v1/docs`.
 It shows the chat routes your app uses (health, chat, stream, history, suggestions). Press **Authorize**, paste your key,
 then **Try it out**; fill in `ITI-User-Id` (required). Each route lists the error codes it can return. The same
 description as JSON: `<base URL>v1/openapi.json`. These are real calls: use a test user id, never a real person's.
@@ -32,8 +32,8 @@ description as JSON: `<base URL>v1/openapi.json`. These are real calls: use a te
 
 ## What you get from Vince (ITI AI admin)
 
-- The **base URL**, e.g. `https://ITI-Vinas.ho.intellismartinc.com:8443/` (later a service name such as
-  `https://iti-ai-api.ho.intellismartinc.com:8443/`). Your servers must trust ITI's root certificate (pushed
+- The **base URL**: `https://192.168.4.99:2102/` since 29 Oct 2026 (it was `https://ITI-Vinas.ho.intellismartinc.com:8443/`,
+  which no longer answers: update your configuration). Later a service name. Your servers must trust ITI's root certificate (pushed
   by IT; on a machine outside the domain, install it into **Local Machine → Trusted Root Certification Authorities**).
 - **One API key per app per environment** (dev, prod), and **per company** if your app serves several
   (see "Several companies in one app"). Handed over in person or through a password
@@ -53,7 +53,7 @@ description as JSON: `<base URL>v1/openapi.json`. These are real calls: use a te
 **2. Configuration.** In `appsettings.json` (no secrets here):
 
 ```json
-"ItiAi": { "BaseUrl": "https://ITI-Vinas.ho.intellismartinc.com:8443/", "Collection": "iti-docs" }
+"ItiAi": { "BaseUrl": "https://192.168.4.99:2102/", "Collection": "iti-docs" }
 ```
 
 The **key** goes only in an environment variable on the server (or your secret store), never in
@@ -90,7 +90,7 @@ A conversation id from company A sent with company B's key is a 404 `conversatio
 
 ```json
 "ItiAi": {
-  "BaseUrl": "https://ITI-Vinas.ho.intellismartinc.com:8443/",
+  "BaseUrl": "https://192.168.4.99:2102/",
   "Companies": { "iti": { "Collection": "iti-docs" }, "mayon": { "Collection": "mayon-docs" } }
 }
 ```
@@ -155,6 +155,8 @@ Rules for this setup:
    Never from the browser (people could read each other's chats). Not a username that can be renamed,
    and never reused for a new person. Ideally the same id in all your apps (e.g. the employee number).
    It is **required** on every chat and history call (missing = 422 `invalid_request`).
+   Optional: `userRole` on `ChatAsync` / `ChatStreamAsync` (header `ITI-User-Role`, e.g. `"hr staff"`, up to 50
+   characters) is only a label shown in ITI's console; it doesn't change what the person may read.
 3. **Timeout of at least 150 s.** One model serves everyone; questions can wait in a queue.
 4. **Retry only `llm_busy`**, once, after a pause. Never retry anything else automatically.
 5. **Log `Code` and `RequestId`, never the question** (it may contain personal details).
@@ -201,6 +203,8 @@ better generated questions may come later in the same shape, so your code won't 
 
 **Documents** (only with `documents:write`): see step 5 of `Iti.AiClient.Smoke/Program.cs`:
 `UploadDocumentAsync` returns at once, then poll `GetJobAsync` every few seconds until `done` or `failed`.
+A `done` job can carry a `Warning` (some numbers in the PDF look unreadable, e.g. a bad scan): the file is indexed,
+but answers from those pages may be refused; show the warning to whoever uploaded it.
 On `document_exists`, ask the user "Replace the existing file?" and upload again with `replace: true`.
 `DeleteDocumentAsync` removes a file and all its versions. PDF only, up to 50 MB.
 
@@ -288,6 +292,7 @@ Branch on `Code`, not on `Status`.
 |---|---|---|---|
 | 401 | `invalid_api_key` | key wrong, revoked or expired | alert your ops, contact Vince |
 | 403 | `scope_forbidden` / `collection_forbidden` | the key may not do this | configuration: contact Vince |
+| 403 | `key_suspended` | ITI paused this key; `Message` says why ("This API key is paused: … Contact ITI.") | show "assistant paused"; no retry until ITI resumes it |
 | 404 | `collection_not_found`, `conversation_not_found`, `document_not_found`, `job_not_found` | doesn't exist (or isn't this user's) | check the id |
 | 409 | `document_exists` | same file name already indexed | ask "Replace?", resend with `replace: true` |
 | 409 | `upload_in_progress` | that file is being indexed | try again in a minute |
@@ -306,7 +311,7 @@ From `csharp\`, with your key and the collection Vince gives you, and a question
 
 ```powershell
 $env:ITI_KIT_KEY = "iti_sk_..."
-$env:ITI_KIT_URL = "https://ITI-Vinas.ho.intellismartinc.com:8443/"
+$env:ITI_KIT_URL = "https://192.168.4.99:2102/"
 $env:ITI_KIT_COLLECTION = "iti-docs"
 dotnet run --project Iti.AiClient.Smoke -- "What is the dress code?"
 ```
@@ -326,12 +331,12 @@ service: the dev server (Node, on your PC) adds the key and the user id, so they
 and the page still sees one origin (no CORS).
 
 **Ask Vince first for:** a separate **demo key** (chat only, no tools, revoked after the demo) and your PC's IP
-allowed through to port 8443.
+allowed through to port 2102.
 
 **1. `.env.local`** next to `vite.config.js` (git-ignored; **no `VITE_` prefix**, so Vite never puts it in the page):
 
 ```
-ITI_URL=https://ITI-Vinas.ho.intellismartinc.com:8443
+ITI_URL=https://192.168.4.99:2102
 ITI_KEY=iti_sk_...
 ITI_DEMO_USER=demo-frontend-1
 ```
@@ -387,7 +392,7 @@ console.log(res.status, data);
 **Expected:** `200` with an `answer` and `found: true`. `401 invalid_api_key` = the key in `.env.local`
 (the connection itself works). `500` with `http proxy error ... unable to get local issuer certificate` in the dev
 server's terminal = step 3 (restart `npm run dev` after setting it); `500` with a timeout or `ECONNREFUSED` there
-= port 8443 not open for your PC. `404` = the `/iti` rewrite.
+= port 2102 not open for your PC. `404` = the `/iti` rewrite.
 
 When your .NET server is ready: delete the `/iti` proxy and `.env.local`, switch the page to `/api/assistant/...`,
 and tell Vince to revoke the demo key.

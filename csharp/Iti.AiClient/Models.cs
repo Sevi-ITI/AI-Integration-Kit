@@ -60,4 +60,5 @@ public sealed record JobStatus (
     int? Chunks,
     string? Error,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? FinishedAt);
+    DateTimeOffset? FinishedAt,
+    string? Warning = null);   // indexed, but some numbers look unreadable (bad OCR): answers from those pages may be refused

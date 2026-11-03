@@ -83,7 +83,12 @@ public sealed class ChatController(ItiAiClient ai, IConfiguration config, ILogge
     {
         log.LogWarning("ITI AI refused: {Code} ({Status}) request_id={RequestId}", ex.Code, ex.Status, ex.RequestId);
         var busy = ex.Code == "llm_busy";
-        var message = busy ? "The assistant is busy. Please try again in a minute." : "The assistant is unavailable right now.";
+        var message = ex.Code switch
+        {
+            "llm_busy" => "The assistant is busy. Please try again in a minute.",
+            "key_suspended" => "The assistant is paused for now. Please contact your administrator.",
+            _ => "The assistant is unavailable right now.",
+        };
         return (busy ? 503 : 502, new { kind = "error", message, requestId = ex.RequestId });
     }
 }
