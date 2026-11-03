@@ -541,6 +541,108 @@
         }
       }
     },
+    "/v1/usage/me": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "The user's tokens today",
+        "description": "How much of today's share the person in ITI-User-Id has used through this key. limit = null means no daily\nlimit. When used reaches limit, questions get 429 user_daily_limit until midnight (Manila). The same numbers come\nwith every chat answer in the ITI-User-Share-Used and ITI-User-Share-Limit headers.",
+        "operationId": "get_usage_me_v1_usage_me_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "ConsoleSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ITI-User-Id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "title": "Iti-User-Id"
+            },
+            "description": "Required: the signed-in person's permanent id from your server's session."
+          },
+          {
+            "name": "ITI-User-Role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 50
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional label (e.g. 'hr staff') shown in the console; doesn't change access.",
+              "title": "Iti-User-Role"
+            },
+            "description": "Optional label (e.g. 'hr staff') shown in the console; doesn't change access."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserShare"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "**invalid_api_key**: key missing, wrong, revoked or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "**scope_forbidden**: this key may not use this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "**invalid_request**: a field or header is missing or invalid (e.g. no ITI-User-Id, question over 4,000)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "**internal_error**: a bug on the AI side: quote the request_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/documents": {
       "post": {
         "tags": [
@@ -1444,6 +1546,39 @@
           "status"
         ],
         "title": "UploadAccepted"
+      },
+      "UserShare": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day",
+            "description": "Today in Manila time, \"2026-11-03\": the share resets at midnight Manila"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used",
+            "description": "Model tokens (input + output) this person used today through this key"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit",
+            "description": "Tokens this person may use a day; null = no daily limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "used",
+          "limit"
+        ],
+        "title": "UserShare"
       }
     },
     "securitySchemes": {
