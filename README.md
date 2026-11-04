@@ -12,8 +12,8 @@ with its own API key. This folder has everything you need:
 | `openapi-v1.json` | The v1 contract (every route, field and error). The library follows it |
 
 **Interactive API docs (Swagger):** `<base URL>v1/docs`, e.g. `https://192.168.4.99:2102/v1/docs`.
-It shows the chat routes your app uses (health, chat, stream, history, suggestions). Press **Authorize**, paste your key,
-then **Try it out**; fill in `ITI-User-Id` (required). Each route lists the error codes it can return. The same
+It shows the chat routes your app uses (health, chat, stream, history, suggestions, usage). Press **Authorize**, paste your key,
+then **Try it out**; fill in `ITI-User-Id` (required, except on `GET /v1/usage/key`). Each route lists the error codes it can return. The same
 description as JSON: `<base URL>v1/openapi.json`. These are real calls: use a test user id, never a real person's.
 
 ## How it fits
@@ -209,7 +209,7 @@ but answers from those pages may be refused; show the warning to whoever uploade
 On `document_exists`, ask the user "Replace the existing file?" and upload again with `replace: true`.
 `DeleteDocumentAsync` removes a file and all its versions. PDF only, up to 50 MB.
 
-## Usage and limits (client v1.1, since 4 Nov 2026)
+## Usage and limits (client v1.1, since 4 Nov 2026; the key's month on demand since v1.2)
 
 ITI can give a key a **plan**. Keys without one have no limits and work as before.
 
@@ -234,10 +234,26 @@ if (r.Usage?.NearMonthLimit == true) { /* tell your admins: 80 % of the month is
 var me = await ai.GetUsageMeAsync(userId);   // Day "2026-11-04", Used, Limit: for a meter bar
 ```
 
+**The key's month without asking a question** (v1.2): for your admins' dashboard, or a daily check that warns your
+ops before the month runs out. No `userId`: it is the whole key (every person together), so show it to your admins
+only, not to every user.
+
+```csharp
+var month = await ai.GetUsageKeyAsync();
+// month.Month "2026-11" (Manila), month.Used, month.Limit and month.Remaining (both null = the key has no plan)
+if (month.NearMonthLimit) { /* tell your admins: 80 % of the month is used */ }
+```
+
+- `Used` counts only billable tokens (answered questions). Refusals and failures never use the key's month.
+- At the limit this call still answers (`Remaining` is 0); only questions get `token_cap_reached`.
+- The numbers are the same ones every answer carries in `Usage.TokensRemaining` / `TokensLimit`. Use the call
+  when there is no recent answer to read them from.
+
 - `ChatStreamAsync`: the first event (`Kind == "meta"`) carries `Usage`.
 - Over plain HTTP: response headers `ITI-User-Share-Used`, `ITI-User-Share-Limit`, `ITI-Tokens-Remaining`,
-  `ITI-Tokens-Limit` (integers; a header is left out when there is no such limit), and `GET /v1/usage/me` with
-  `ITI-User-Id` → `{"day", "used", "limit"}`.
+  `ITI-Tokens-Limit` (integers; a header is left out when there is no such limit); `GET /v1/usage/me` with
+  `ITI-User-Id` → `{"day", "used", "limit"}`; `GET /v1/usage/key` without it →
+  `{"month", "used", "limit", "remaining"}`.
 - On a refusal: `ex.IsLimit` (the two 429s) or `ex.IsPaused` (`key_suspended`, `trial_ended`, `not_in_pilot`):
   show your message (see `ChatController.cs`), grey out the question box, **no retry**. `ChatController.cs` also
   has `GET api/assistant/usage` for the meter bar.
@@ -354,12 +370,12 @@ $env:ITI_KIT_COLLECTION = "iti-docs"
 dotnet run --project Iti.AiClient.Smoke -- "What is the dress code?"
 ```
 
-Expected with a chat-only key: 9 `PASS` lines (one is `usage: …`), one `SKIP  upload checks: this key may not upload (chat only)`
-line and `ALL PASSED`. A `FAIL` line names the field or error code.
+Expected with a chat-only key: 10 `PASS` lines (two are `usage: …` and `usage/key: …`), one
+`SKIP  upload checks: this key may not upload (chat only)` line and `ALL PASSED`. A `FAIL` line names the field or error code.
 
 Only if your key also has `documents:write`: add a company policy PDF you know (never a file with personal data)
 as a second argument. The test then also uploads a copy named `kit-smoke-upload.pdf`, waits for indexing and
-deletes it again: 12 `PASS` lines.
+deletes it again: 13 `PASS` lines.
 
 ## Last resort: a demo without your .NET server
 
@@ -442,7 +458,9 @@ and tell Vince to revoke the demo key.
 - The contract is **v1** (`openapi-v1.json`). New fields may be added (the library ignores fields it
   doesn't know, so your app keeps working). Renaming or removing anything would be a new `/v2`,
   announced in advance.
-- **Changes:** 2026-11-04, client **1.1.0** (no breaking change): `ChatResponse.Usage` and the stream's first
+- **Changes:** 2026-11-04, client **1.2.0** (no breaking change): `GetUsageKeyAsync` and `UsageKey`; the API added
+  `GET /v1/usage/key` (contract now 11 endpoints). Replace your copy of `Iti.AiClient` with this one.
+- 2026-11-04, client **1.1.0** (no breaking change): `ChatResponse.Usage` and the stream's first
   event `Usage`, `GetUsageMeAsync`, `ItiAiException.IsLimit` / `IsPaused`; the API added `GET /v1/usage/me`
   (contract now 10 endpoints), the usage headers and the codes `token_cap_reached`, `user_daily_limit`,
   `trial_ended`, `not_in_pilot` (`key_suspended` since 2026-11-03). Replace your copy of `Iti.AiClient` with this one.

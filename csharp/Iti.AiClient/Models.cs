@@ -29,6 +29,14 @@ public sealed record ChatUsage(long? ShareUsed, long? ShareLimit, long? TokensRe
 // GET /v1/usage/me: Day = today in Manila ("2026-11-04"); Limit null = no daily limit.
 public sealed record UsageMe(string Day, long Used, long? Limit);
 
+// GET /v1/usage/key (v1.2): this key's month. Month = "2026-11" (Manila). Limit / Remaining null = no plan, no limit.
+// Used = billable tokens only (answered questions). At the limit Remaining is 0; only questions are refused.
+public sealed record UsageKey(string Month, long Used, long? Limit, long? Remaining)
+{
+    // 80 % or more used: tell your admins.
+    public bool NearMonthLimit => Limit > 0 && Remaining <= Limit * 0.2;
+}
+
 public sealed record Citation(
     string DocId, 
     string Title, 

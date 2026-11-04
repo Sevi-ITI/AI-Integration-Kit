@@ -67,6 +67,11 @@ public sealed class ItiAiClient(HttpClient http)
     public Task<UsageMe> GetUsageMeAsync(string userId, CancellationToken ct = default) =>
         SendAsync<UsageMe>(ForUser(HttpMethod.Get, "v1/usage/me", userId), ct);
 
+    // This key's tokens this month and its limit (v1.2). No userId: it is the whole key, every person together,
+    // so show it to your admins only. Same numbers as Usage.TokensRemaining / TokensLimit on every answer.
+    public Task<UsageKey> GetUsageKeyAsync(CancellationToken ct = default) =>
+        SendAsync<UsageKey>(new HttpRequestMessage(HttpMethod.Get, "v1/usage/key"), ct);
+
     // Starter questions (chips) for a new chat, one per file, picked at random. A chip click fills the question box.
     public Task<List<Suggestion>> GetSuggestionsAsync(string collection, int limit = 3, CancellationToken ct = default) =>
         SendAsync<List<Suggestion>>(new HttpRequestMessage(

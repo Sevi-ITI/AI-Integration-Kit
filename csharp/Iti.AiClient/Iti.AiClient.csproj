@@ -3,8 +3,9 @@
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <!-- 1.2.0 (2026-11-04): GetUsageKeyAsync / UsageKey (GET /v1/usage/key); nothing removed -->
         <!-- 1.1.0 (2026-11-04): usage on replies, GetUsageMeAsync, IsLimit / IsPaused; nothing removed -->
-        <Version>1.1.0</Version>
+        <Version>1.2.0</Version>
     </PropertyGroup>
 </Project>
 

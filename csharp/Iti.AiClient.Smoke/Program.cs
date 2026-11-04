@@ -52,6 +52,9 @@ try
     Check(chat.Usage?.ShareUsed is not null && me.Day.Length == 10 && me.Limit == chat.Usage.ShareLimit,
         $"usage: today {me.Used} used of {me.Limit?.ToString() ?? "no limit"}; key month before the first question: "
         + (chat.Usage?.TokensLimit is { } monthLimit ? $"{chat.Usage.TokensRemaining} left of {monthLimit}" : "no plan"));
+    var month = await ai.GetUsageKeyAsync();
+    Check(month.Month.Length == 7 && month.Limit == chat.Usage?.TokensLimit && (month.Limit is null) == (month.Remaining is null),
+        $"usage/key: this month {month.Used} used of {month.Limit?.ToString() ?? "no limit (no plan)"}");
 
     // 2. Streamed follow-up in the same conversation
     var kinds = new List<string>();

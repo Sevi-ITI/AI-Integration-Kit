@@ -1,3 +1,4 @@
+
 {
   "openapi": "3.1.0",
   "info": {
@@ -713,6 +714,76 @@
             }
           }
         }
+      }
+    },
+    "/v1/usage/key": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "The key's tokens this month",
+        "description": "How much of this month's limit the calling key has used. limit = null means the key has no plan (no limit).\nWhen remaining reaches 0, questions get 429 token_cap_reached until the 1st (Manila). The same numbers come with\nevery chat answer in the ITI-Tokens-Remaining and ITI-Tokens-Limit headers. No ITI-User-Id needed.",
+        "operationId": "get_usage_key_v1_usage_key_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyMonth"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "**invalid_api_key**: key missing, wrong, revoked or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "**invalid_request**: a field or header is missing or invalid (e.g. no ITI-User-Id, question over 4,000)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "**internal_error**: a bug on the AI side: quote the request_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "ConsoleSession": []
+          }
+        ]
       }
     },
     "/v1/documents": {
@@ -1517,6 +1588,52 @@
           "created_at"
         ],
         "title": "JobStatus"
+      },
+      "KeyMonth": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month",
+            "description": "This month in Manila time, \"2026-11\": the limit resets on the 1st, Manila"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used",
+            "description": "Billable model tokens (input + output) this key used this month"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit",
+            "description": "This month's limit, top-ups included; null = the key has no plan, no limit"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining",
+            "description": "limit - used, never below 0; null = no limit. At 0, questions get 429"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "used",
+          "limit",
+          "remaining"
+        ],
+        "title": "KeyMonth"
       },
       "MessageOut": {
         "properties": {
