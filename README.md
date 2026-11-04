@@ -446,4 +446,6 @@ and tell Vince to revoke the demo key.
   event `Usage`, `GetUsageMeAsync`, `ItiAiException.IsLimit` / `IsPaused`; the API added `GET /v1/usage/me`
   (contract now 10 endpoints), the usage headers and the codes `token_cap_reached`, `user_daily_limit`,
   `trial_ended`, `not_in_pilot` (`key_suspended` since 2026-11-03). Replace your copy of `Iti.AiClient` with this one.
-- .NET 8 support ends 10 Nov 2026. The library targets `net8.0` and also runs on .NET 10.
+- **.NET 8 support ends 10 Nov 2026** (no more security fixes after that). The library stays on `net8.0` so it
+  works in your apps today, and it runs unchanged on .NET 10 (LTS): when your app moves to .NET 10, change
+  `<TargetFramework>` in `Iti.AiClient.csproj` to `net10.0` too. Nothing else changes (no NuGet packages).
