@@ -15,17 +15,26 @@ public sealed class ItiAiClient(HttpClient http)
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
-    public Task<ChatResponse> ChatAsync(
-        string userId, ChatRequest request, string? userRole = null, CancellationToken ct = default) =>
-        SendAsync<ChatResponse>(ForUser(HttpMethod.Post, "v1/chat", userId, userRole, request), ct);
+    // Usage on the reply: the person's daily share and the key's month, from the headers (v1.1).
+    public async Task<ChatResponse> ChatAsync(
+        string userId, ChatRequest request, string? userRole = null, CancellationToken ct = default)
+    {
+        using var message = ForUser(HttpMethod.Post, "v1/chat", userId, userRole, request);
+        using var response = await http.SendAsync(message, ct);
+        await ThrowIfErrorAsync(response, ct);
+        var reply = (await response.Content.ReadFromJsonAsync<ChatResponse>(Json, ct))!;
+        return reply with { Usage = UsageFrom(response) };
+    }
 
-    // Refusals before the stream starts (401, 403, 404, 422) and "error" events both throw ItiAiException.
+    // Refusals before the stream starts (401, 403, 404, 422, 429) and "error" events both throw ItiAiException.
+    // The first event ("meta") carries Usage, from the stream's headers.
     public async IAsyncEnumerable<ChatStreamEvent> ChatStreamAsync(
         string userId, ChatRequest request, string? userRole = null, [EnumeratorCancellation] CancellationToken ct = default)
     {
         using var message = ForUser(HttpMethod.Post, "v1/chat/stream", userId, userRole, request);
         using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
         await ThrowIfErrorAsync(response, ct);
+        var usage = UsageFrom(response);
         using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(ct));
         string kind = "", requestId = "";
         while (await reader.ReadLineAsync(ct) is { } line)
@@ -39,7 +48,8 @@ public sealed class ItiAiClient(HttpClient http)
                     var error = JsonNode.Parse(line[5..])!;
                     throw new ItiAiException(0, (string)error["code"]!, (string)error["message"]!, requestId);
                 }
-                var ev = JsonSerializer.Deserialize<ChatStreamEvent>(line[5..], Json)! with { Kind = kind };
+                var ev = JsonSerializer.Deserialize<ChatStreamEvent>(line[5..], Json)! with { Kind = kind, Usage = usage };
+                usage = null;  // only the first event carries it
                 requestId = ev.RequestId ?? requestId;
                 yield return ev;
             }
@@ -52,6 +62,10 @@ public sealed class ItiAiClient(HttpClient http)
     public Task<List<MessageOut>> GetMessagesAsync(string userId, string conversationId, CancellationToken ct = default) =>
         SendAsync<List<MessageOut>>(
             ForUser(HttpMethod.Get, $"v1/conversations/{Uri.EscapeDataString(conversationId)}/messages", userId), ct);
+
+    // This person's model tokens today through this key, and their daily limit (null = no limit). For a meter bar.
+    public Task<UsageMe> GetUsageMeAsync(string userId, CancellationToken ct = default) =>
+        SendAsync<UsageMe>(ForUser(HttpMethod.Get, "v1/usage/me", userId), ct);
 
     // Starter questions (chips) for a new chat, one per file, picked at random. A chip click fills the question box.
     public Task<List<Suggestion>> GetSuggestionsAsync(string collection, int limit = 3, CancellationToken ct = default) =>
@@ -101,6 +115,15 @@ public sealed class ItiAiClient(HttpClient http)
             await ThrowIfErrorAsync(response, ct);
             return (await response.Content.ReadFromJsonAsync<T>(Json, ct))!;
         }
+    }
+
+    private static ChatUsage UsageFrom(HttpResponseMessage response)
+    {
+        long? Header(string name) =>
+            response.Headers.TryGetValues(name, out var values) && long.TryParse(values.FirstOrDefault(), out var n) ? n : null;
+        return new ChatUsage(
+            Header("ITI-User-Share-Used"), Header("ITI-User-Share-Limit"),
+            Header("ITI-Tokens-Remaining"), Header("ITI-Tokens-Limit"));
     }
 
     // Every error reply is {"error": {"code", "message"}, "request_id"}.

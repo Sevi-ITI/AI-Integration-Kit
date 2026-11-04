@@ -158,7 +158,8 @@ Rules for this setup:
    Optional: `userRole` on `ChatAsync` / `ChatStreamAsync` (header `ITI-User-Role`, e.g. `"hr staff"`, up to 50
    characters) is only a label shown in ITI's console; it doesn't change what the person may read.
 3. **Timeout of at least 150 s.** One model serves everyone; questions can wait in a queue.
-4. **Retry only `llm_busy`**, once, after a pause. Never retry anything else automatically.
+4. **Retry only `llm_busy`**, once, after a pause. Never retry anything else automatically, above all not the
+   limit codes (`ex.IsLimit`) or a paused key (`ex.IsPaused`): see **Usage and limits**.
 5. **Log `Code` and `RequestId`, never the question** (it may contain personal details).
 6. **Show users that chats are recorded** (the wording comes from ITI's Data Protection Officer).
 
@@ -207,6 +208,39 @@ A `done` job can carry a `Warning` (some numbers in the PDF look unreadable, e.g
 but answers from those pages may be refused; show the warning to whoever uploaded it.
 On `document_exists`, ask the user "Replace the existing file?" and upload again with `replace: true`.
 `DeleteDocumentAsync` removes a file and all its versions. PDF only, up to 50 MB.
+
+## Usage and limits (client v1.1, since 4 Nov 2026)
+
+ITI can give a key a **plan**. Keys without one have no limits and work as before.
+
+- **The key's month:** a token limit per Manila calendar month (top-ups by ITI count for that month only). At the
+  limit, every question gets **429 `token_cap_reached`** until the 1st or a top-up.
+- **Each person's day:** a share of tokens per `userId` per day (100,000 by default, about 18 document questions at about 5,500 tokens each;
+  refused questions count too). At the share, that person gets **429 `user_daily_limit`** until midnight
+  (Manila); other people keep working.
+- **Trials:** a trial key answers only the people in its pilot group (**403 `not_in_pilot`**) and stops after its
+  last day (**403 `trial_ended`**).
+- **Paused:** ITI can pause a key (**403 `key_suspended`**, `Message` says why).
+
+Every answer tells you where things stand, **as they were before that question**:
+
+```csharp
+var r = await ai.ChatAsync(userId, new ChatRequest(question, collection));
+// r.Usage.ShareUsed / ShareLimit       this person's tokens today (ShareLimit null = no daily limit)
+// r.Usage.TokensRemaining / TokensLimit this key's month (null = the key has no plan)
+if (r.Usage?.NearDailyShare == true) { /* e.g. "You've used most of today's assistant share." */ }
+if (r.Usage?.NearMonthLimit == true) { /* tell your admins: 80 % of the month is used */ }
+
+var me = await ai.GetUsageMeAsync(userId);   // Day "2026-11-04", Used, Limit: for a meter bar
+```
+
+- `ChatStreamAsync`: the first event (`Kind == "meta"`) carries `Usage`.
+- Over plain HTTP: response headers `ITI-User-Share-Used`, `ITI-User-Share-Limit`, `ITI-Tokens-Remaining`,
+  `ITI-Tokens-Limit` (integers; a header is left out when there is no such limit), and `GET /v1/usage/me` with
+  `ITI-User-Id` → `{"day", "used", "limit"}`.
+- On a refusal: `ex.IsLimit` (the two 429s) or `ex.IsPaused` (`key_suspended`, `trial_ended`, `not_in_pilot`):
+  show your message (see `ChatController.cs`), grey out the question box, **no retry**. `ChatController.cs` also
+  has `GET api/assistant/usage` for the meter bar.
 
 ## Your frontend (the browser part)
 
@@ -292,13 +326,17 @@ Branch on `Code`, not on `Status`.
 |---|---|---|---|
 | 401 | `invalid_api_key` | key wrong, revoked or expired | alert your ops, contact Vince |
 | 403 | `scope_forbidden` / `collection_forbidden` | the key may not do this | configuration: contact Vince |
-| 403 | `key_suspended` | ITI paused this key; `Message` says why ("This API key is paused: … Contact ITI.") | show "assistant paused"; no retry until ITI resumes it |
+| 403 | `key_suspended` | ITI paused this key; `Message` says why ("This API key is paused: … Contact ITI.") | show "assistant paused"; no retry until ITI resumes it (`IsPaused`) |
+| 403 | `trial_ended` | the key's free trial is over | "trial ended, contact your administrator"; no retry (`IsPaused`) |
+| 403 | `not_in_pilot` | trial key: this person is not in its pilot group | "for selected people only"; no retry (`IsPaused`) |
 | 404 | `collection_not_found`, `conversation_not_found`, `document_not_found`, `job_not_found` | doesn't exist (or isn't this user's) | check the id |
 | 409 | `document_exists` | same file name already indexed | ask "Replace?", resend with `replace: true` |
 | 409 | `upload_in_progress` | that file is being indexed | try again in a minute |
 | 413 | `file_too_large` | over 50 MB | |
 | 415 | `unsupported_file_type` | not a PDF | |
 | 422 | `invalid_request` | e.g. missing user id, question over 4,000 characters | fix the call |
+| 429 | `token_cap_reached` | the key used its tokens for this month | "monthly limit reached"; no retry until the 1st or ITI's top-up (`IsLimit`) |
+| 429 | `user_daily_limit` | this person used today's share | "come back tomorrow"; no retry until midnight, Manila (`IsLimit`) |
 | 503 | `llm_busy` | queue full | **retry once** after a pause, or "try again in a minute" |
 | 503 | `llm_unavailable` | the model is down | "Assistant unavailable", no retry |
 | 500 | `internal_error` | a bug on the AI side | send Vince the `RequestId`, no retry |
@@ -316,12 +354,12 @@ $env:ITI_KIT_COLLECTION = "iti-docs"
 dotnet run --project Iti.AiClient.Smoke -- "What is the dress code?"
 ```
 
-Expected with a chat-only key: 8 `PASS` lines, one `SKIP  upload checks: this key may not upload (chat only)`
+Expected with a chat-only key: 9 `PASS` lines (one is `usage: …`), one `SKIP  upload checks: this key may not upload (chat only)`
 line and `ALL PASSED`. A `FAIL` line names the field or error code.
 
 Only if your key also has `documents:write`: add a company policy PDF you know (never a file with personal data)
 as a second argument. The test then also uploads a copy named `kit-smoke-upload.pdf`, waits for indexing and
-deletes it again: 11 `PASS` lines.
+deletes it again: 12 `PASS` lines.
 
 ## Last resort: a demo without your .NET server
 
@@ -404,4 +442,8 @@ and tell Vince to revoke the demo key.
 - The contract is **v1** (`openapi-v1.json`). New fields may be added (the library ignores fields it
   doesn't know, so your app keeps working). Renaming or removing anything would be a new `/v2`,
   announced in advance.
+- **Changes:** 2026-11-04, client **1.1.0** (no breaking change): `ChatResponse.Usage` and the stream's first
+  event `Usage`, `GetUsageMeAsync`, `ItiAiException.IsLimit` / `IsPaused`; the API added `GET /v1/usage/me`
+  (contract now 10 endpoints), the usage headers and the codes `token_cap_reached`, `user_daily_limit`,
+  `trial_ended`, `not_in_pilot` (`key_suspended` since 2026-11-03). Replace your copy of `Iti.AiClient` with this one.
 - .NET 8 support ends 10 Nov 2026. The library targets `net8.0` and also runs on .NET 10.

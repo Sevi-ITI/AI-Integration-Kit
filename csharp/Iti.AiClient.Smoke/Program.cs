@@ -48,6 +48,10 @@ try
     Check(chat.Answer.Length > 0 && chat.ConversationId.StartsWith("iti_conv_") && chat.RequestId.Length > 0,
         "chat: answer, conversation id and request id filled");
     Check(chat.Found && chat.Citations.Any(c => c.Page > 0 && c.Title.Length > 0), "chat: found, with a cited page");
+    var me = await ai.GetUsageMeAsync(user);
+    Check(chat.Usage?.ShareUsed is not null && me.Day.Length == 10 && me.Limit == chat.Usage.ShareLimit,
+        $"usage: today {me.Used} used of {me.Limit?.ToString() ?? "no limit"}; key month before the first question: "
+        + (chat.Usage?.TokensLimit is { } monthLimit ? $"{chat.Usage.TokensRemaining} left of {monthLimit}" : "no plan"));
 
     // 2. Streamed follow-up in the same conversation
     var kinds = new List<string>();

@@ -55,6 +55,22 @@ public sealed class ChatController(ItiAiClient ai, IConfiguration config, ILogge
         }
     }
 
+    // The signed-in person's tokens today, for a meter bar ({"day","used","limit"}; limit null = no daily limit).
+    // Every answer's Usage has the same numbers, as they were before that question.
+    [HttpGet("usage")]
+    public async Task<IActionResult> Usage(CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await ai.GetUsageMeAsync(UserId, ct));
+        }
+        catch (ItiAiException ex)
+        {
+            var (status, error) = Refusal(ex);
+            return StatusCode(status, error);
+        }
+    }
+
     // One JSON object per line: {"kind":"meta",...} {"kind":"token","text":"..."} ... {"kind":"done","answer":"...",...}
     // or a last {"kind":"error","message":"...","requestId":"..."}. The page appends tokens and replaces them with "answer".
     [HttpPost("ask/stream")]
@@ -82,13 +98,18 @@ public sealed class ChatController(ItiAiClient ai, IConfiguration config, ILogge
     private (int Status, object Error) Refusal(ItiAiException ex)
     {
         log.LogWarning("ITI AI refused: {Code} ({Status}) request_id={RequestId}", ex.Code, ex.Status, ex.RequestId);
-        var busy = ex.Code == "llm_busy";
         var message = ex.Code switch
         {
             "llm_busy" => "The assistant is busy. Please try again in a minute.",
             "key_suspended" => "The assistant is paused for now. Please contact your administrator.",
+            "user_daily_limit" => "You've used today's share of the assistant. It resets at midnight.",
+            "token_cap_reached" => "The assistant has reached this month's limit. Please contact your administrator.",
+            "trial_ended" => "The assistant's free trial has ended. Please contact your administrator.",
+            "not_in_pilot" => "The assistant is in a pilot for selected people only.",
             _ => "The assistant is unavailable right now.",
         };
-        return (busy ? 503 : 502, new { kind = "error", message, requestId = ex.RequestId });
+        // IsLimit / IsPaused (client v1.1): no retry; the page shows the message and greys out the input.
+        var status = ex.Code == "llm_busy" ? 503 : ex.IsLimit ? 429 : ex.IsPaused ? 403 : 502;
+        return (status, new { kind = "error", message, requestId = ex.RequestId });
     }
 }

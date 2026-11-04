@@ -96,6 +96,32 @@
                   "$ref": "#/components/schemas/ChatResponse"
                 }
               }
+            },
+            "headers": {
+              "ITI-User-Share-Used": {
+                "description": "Model tokens this person used today through this key",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-User-Share-Limit": {
+                "description": "This person's daily share (sent only when there is one)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-Tokens-Remaining": {
+                "description": "Tokens this key has left this month (keys with a plan)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-Tokens-Limit": {
+                "description": "This key's limit this month, top-ups included (keys with a plan)",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "401": {
@@ -109,7 +135,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection\n\n**trial_ended**: this key's free trial is over: no retry until ITI sets a paid plan\n\n**not_in_pilot**: this key is on a trial and this person is not in its pilot group",
             "content": {
               "application/json": {
                 "schema": {
@@ -130,6 +156,16 @@
           },
           "422": {
             "description": "**invalid_request**: a field or header is missing or invalid (e.g. no ITI-User-Id, question over 4,000)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "**token_cap_reached**: this key used its tokens for this month (Manila): no retry until the 1st or an ITI top-up\n\n**user_daily_limit**: this person used today's share through this key: no retry until midnight (Manila)",
             "content": {
               "application/json": {
                 "schema": {
@@ -243,6 +279,32 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "ITI-User-Share-Used": {
+                "description": "Model tokens this person used today through this key",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-User-Share-Limit": {
+                "description": "This person's daily share (sent only when there is one)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-Tokens-Remaining": {
+                "description": "Tokens this key has left this month (keys with a plan)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ITI-Tokens-Limit": {
+                "description": "This key's limit this month, top-ups included (keys with a plan)",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "401": {
@@ -256,7 +318,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection\n\n**trial_ended**: this key's free trial is over: no retry until ITI sets a paid plan\n\n**not_in_pilot**: this key is on a trial and this person is not in its pilot group",
             "content": {
               "application/json": {
                 "schema": {
@@ -277,6 +339,16 @@
           },
           "422": {
             "description": "**invalid_request**: a field or header is missing or invalid (e.g. no ITI-User-Id, question over 4,000)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "**token_cap_reached**: this key used its tokens for this month (Manila): no retry until the 1st or an ITI top-up\n\n**user_daily_limit**: this person used today's share through this key: no retry until midnight (Manila)",
             "content": {
               "application/json": {
                 "schema": {
@@ -384,7 +456,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route",
             "content": {
               "application/json": {
                 "schema": {
@@ -499,7 +571,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route",
             "content": {
               "application/json": {
                 "schema": {
@@ -611,7 +683,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route",
             "content": {
               "application/json": {
                 "schema": {
@@ -1103,7 +1175,7 @@
             }
           },
           "403": {
-            "description": "**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection",
+            "description": "**key_suspended**: ITI paused this key; the message says why: show it, no retry until ITI resumes the key\n\n**scope_forbidden**: this key may not use this route\n\n**collection_forbidden**: this key may not read that collection",
             "content": {
               "application/json": {
                 "schema": {
