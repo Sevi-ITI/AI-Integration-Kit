@@ -167,14 +167,14 @@ Rules for this setup:
 
 ```csharp
 var r = await ai.ChatAsync(userId, new ChatRequest("How many leave days do new employees get?", collection));
-// r.Answer (Markdown), r.Found, r.Citations (DocId, Title, Page, Snippet), r.ConversationId, r.RequestId
-```
+// r.Answer (Markdown), r.Found, r.Citations (DocId, Title, Page, Snippet, Url), r.ConversationId, r.RequestId```
 
 - **`Answer` is Markdown** (lists, bold, tables): render it as Markdown.
 - **`Found = false` is the "I don't know" reply.** Show it like any answer; it is not an error.
 - **`Found = true` with no citations:** show "No source cited, please verify with HR".
-- **Citations:** show the file title and page. `Snippet` is the start of the passage, not an exact quote.
-- **New conversation:** leave `ConversationId` out (`null`, the default). Over plain HTTP: leave
+- **Citations:** show the file title and page. `Snippet` is the start of the passage, not an exact quote. A web
+  source (the General bot's web search) has `Page = null` and a `Url`: show its title as a link that opens in a new
+  tab (`target="_blank" rel="noopener noreferrer"`), and mark it as a web source, never as company policy.- **New conversation:** leave `ConversationId` out (`null`, the default). Over plain HTTP: leave
   `conversation_id` out or send `null`; a blank `""` also starts a new one.
 - **Follow-up questions:** send the previous `ConversationId` in the next `ChatRequest`. Store it if you
   want "continue this chat" (it fits `VARCHAR(32)`). That is the only column you might add.

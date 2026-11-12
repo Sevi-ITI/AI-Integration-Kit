@@ -1,4 +1,3 @@
-
 {
   "openapi": "3.1.0",
   "info": {
@@ -1426,6 +1425,18 @@
             "type": "string",
             "title": "Snippet",
             "description": "The start of the cited passage, not an exact quote."
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url",
+            "description": "A web source's address (the General bot's web search)null for documents and records. Open it in a new tab."
           }
         },
         "type": "object",

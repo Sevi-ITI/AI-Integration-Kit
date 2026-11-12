@@ -41,7 +41,8 @@ public sealed record Citation(
     string DocId, 
     string Title, 
     int? Page, 
-    string Snippet);
+    string Snippet,
+    string? Url = null);
 
 public sealed record ChatStreamEvent(
     string? ConversationId,
