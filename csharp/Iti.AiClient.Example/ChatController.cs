@@ -73,6 +73,8 @@ public sealed class ChatController(ItiAiClient ai, IConfiguration config, ILogge
 
     // One JSON object per line: {"kind":"meta",...} {"kind":"token","text":"..."} ... {"kind":"done","answer":"...",...}
     // or a last {"kind":"error","message":"...","requestId":"..."}. The page appends tokens and replaces them with "answer".
+    // v1.4: {"kind":"status","stage":"records","status":"Fetching your leave credits…"} may come before or between
+    // tokens: show "status" in place of the cursor and clear it on the next token (never add it to the answer).
     [HttpPost("ask/stream")]
     public async Task AskStream(AskBody body, CancellationToken ct)
     {

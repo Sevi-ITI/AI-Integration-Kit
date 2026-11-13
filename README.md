@@ -187,8 +187,15 @@ var r = await ai.ChatAsync(userId, new ChatRequest("How many leave days do new e
 | `Kind` | Fields | What to do |
 |---|---|---|
 | `meta` | `ConversationId`, `RequestId` | keep the conversation id |
+| `status` (any time before `done`, v1.4) | `Stage`, `Status` | show `Status` (e.g. "Thinking…", "Fetching your leave credits…", "Searching the web for "…"") **instead of a blinking cursor**; hide it when the next `token` arrives. Never append it to the answer |
 | `token` (many) | `Text` | append to the screen |
 | `done` | `Answer`, `Found`, `Citations` | **replace** the shown text with `Answer` (it can differ from the tokens) |
+
+`status` events (kit 1.4.0, 13 Nov 2026) come before the first token and between the parts of a longer answer.
+`Stage` is one of `thinking`, `part`, `records`, `documents`, `web` (for an icon, if you like; ignore values you
+don't know). `Status` is already in the user's language (English or Filipino). A status is never saved, never part
+of `Answer`, and never has `Text`: apps on kit 1.3.0 receive these events with only `Kind == "status"` set, so code
+that only reacts to `token` and `done` keeps working unchanged.
 
 A failure during the stream throws `ItiAiException` like any other call. `ChatController.cs` shows
 how to pass the stream to the browser (one JSON object per line). If you host on IIS, make sure
@@ -292,7 +299,7 @@ async function ask(question) {
 **Ask, word by word** (reads the one-object-per-line stream from `AskStream`):
 
 ```js
-async function askStream(question, box) {
+async function askStream(question, box, statusLine) {  // statusLine: a small muted line under box (v1.4)
   const res = await fetch("/api/assistant/ask/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -313,7 +320,8 @@ async function askStream(question, box) {
       if (!line) continue;
       const e = JSON.parse(line);
       if (e.kind === "meta") conversationId = e.conversationId;
-      else if (e.kind === "token") box.textContent += e.text;
+      else if (e.kind === "status") statusLine.textContent = e.status;               // v1.4: "Thinking…" etc.
+      else if (e.kind === "token") { statusLine.textContent = ""; box.textContent += e.text; }
       else if (e.kind === "done") showAnswer(e.answer, e.found, e.citations);   // REPLACES the tokens
       else if (e.kind === "error") showError(e.message);
     }

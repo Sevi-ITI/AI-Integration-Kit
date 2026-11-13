@@ -50,7 +50,9 @@ public sealed record ChatStreamEvent(
     string? Text,
     string? Answer,
     bool Found,
-    List<Citation>? Citations)
+    List<Citation>? Citations,
+    string? Stage = null,   // v1.4: on Kind "status" only: thinking, part, records, documents or web
+    string? Status = null)  // v1.4: on Kind "status" only: what to show instead of a blinking cursor
 {
     public string Kind { get; init; } = "";
     // Set on the first event ("meta") only, from the stream's headers (v1.1).
